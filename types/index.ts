@@ -10,9 +10,6 @@ export interface User {
   plan: PlanType;
   plan_expires_at?: string;
   onboarding_completed: boolean;
-  // ── ADDED — backend now serializes these via schemas/user.py UserOut.
-  // Mirrors models/user.py's is_admin/role, used by routers/admin.py's
-  // require_admin check. Both optional since most users are neither.
   is_admin?: boolean;
   role?: "super_admin" | "editor" | "viewer";
   created_at: string;
@@ -43,17 +40,12 @@ export interface Company {
   created_at: string;
 }
 
-// FIX: ReportType must match backend enum values (what the API actually sends).
-// The DB stores "annual_report", "quarterly", "concall", "research_note" —
-// not display labels like "Annual Report". Using display labels caused type
-// mismatches in every filter comparison and report card render.
 export type ReportType =
   | "annual_report"
   | "quarterly"
   | "concall"
   | "research_note";
 
-// Human-readable labels for display in the UI
 export const REPORT_TYPE_LABELS: Record<ReportType, string> = {
   annual_report: "Annual Report",
   quarterly:     "Quarterly Report",
@@ -77,18 +69,16 @@ export interface Report {
   required_plan: PlanType;
   published_at?: string;
   created_at: string;
-  // Sections are returned inline by GET /reports/{id}
   sections?: ReportSection[];
 }
 
-// Block types — mirror schemas/report.py SectionBlock union
 export interface ParagraphBlock { type: "paragraph"; text: string; }
 export interface HeadingBlock   { type: "heading";   text: string; }
 export interface SummaryBlock   { type: "summary";   text: string; }
 export interface MetricItem {
-  label:     string;
-  value:     string;
-  change?:   string;
+  label:      string;
+  value:      string;
+  change?:    string;
   direction?: "up" | "down";
   sentiment?: "good" | "bad" | "neutral";
 }
@@ -234,18 +224,22 @@ export interface ChatSession {
   messages: ChatMessage[];
 }
 
+// FIX: added "daily_update" and "broadcast" — broadcast alerts from admin
+// were failing TypeScript build and causing 500s on GET /watchlist/alerts
 export type AlertType =
   | "earnings"
   | "risk"
   | "news"
   | "management"
   | "price"
-  | "report_published";
+  | "report_published"
+  | "daily_update"
+  | "broadcast";
 
 export interface Alert {
   id: string;
   user_id: string;
-  company_id: string;
+  company_id?: string;       // optional — null for broadcast alerts
   company_name: string;
   alert_type: AlertType;
   message: string;
