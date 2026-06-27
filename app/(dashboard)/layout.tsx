@@ -41,7 +41,6 @@ const NAV_SECTIONS = [
 
 const NAV_ITEMS = NAV_SECTIONS.flatMap(s => s.items);
 
-// Bottom nav — 5 primary tabs visible, rest in "More" drawer
 const BOTTOM_NAV = [
   { href: "/dashboard", label: "Home",    icon: "⊞" },
   { href: "/watchlist", label: "Watch",   icon: "◎" },
@@ -50,7 +49,6 @@ const BOTTOM_NAV = [
   { href: "/updates",   label: "Updates", icon: "📰" },
 ];
 
-// "More" drawer items (everything not in bottom nav)
 const MORE_ITEMS = [
   { href: "/screener",  label: "Screener", icon: "⊡" },
   { href: "/request",   label: "Request",  icon: "+" },
@@ -78,11 +76,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const pathname = usePathname();
   const width    = useWindowWidth();
 
-  const [mounted,      setMounted]      = useState(false);
-  const [signingOut,   setSigningOut]   = useState(false);
-  const [showUserMenu, setShowUserMenu] = useState(false);
-  const [showMore,     setShowMore]     = useState(false); // mobile "More" drawer
-  const [showMobileMenu, setShowMobileMenu] = useState(false); // mobile slide-in nav (tablet)
+  const [mounted,        setMounted]        = useState(false);
+  const [signingOut,     setSigningOut]      = useState(false);
+  const [showUserMenu,   setShowUserMenu]    = useState(false);
+  const [showMore,       setShowMore]        = useState(false);
+  const [showMobileMenu, setShowMobileMenu]  = useState(false);
 
   const hasRedirected = useRef(false);
 
@@ -142,18 +140,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   if (!isAuthenticated) return null;
 
-  // Breakpoints
-  const isMobile = width < 640;
-  const isTablet = width >= 640 && width < 1024;
+  const isMobile  = width < 640;
+  const isTablet  = width >= 640 && width < 1024;
   const isDesktop = width >= 1024;
 
-  // On tablet: sidebar always icon-only (collapsed). On desktop: respects sidebarCollapsed.
   const effectiveCollapsed = isTablet ? true : sidebarCollapsed;
   const sideW = isDesktop
     ? (sidebarCollapsed ? 64 : 220)
-    : isTablet
-    ? 56
-    : 0; // mobile: no sidebar
+    : isTablet ? 56 : 0;
 
   async function handleSignOut() {
     setSigningOut(true);
@@ -174,6 +168,66 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const currentLabel = NAV_ITEMS.find(n =>
     pathname === n.href || (n.href !== "/dashboard" && pathname.startsWith(n.href))
   )?.label ?? "Dashboard";
+
+  // ── Shared user menu dropdown ────────────────────────────────
+  function UserMenuDropdown({ position }: { position: "sidebar" | "topbar" }) {
+    const style: React.CSSProperties = position === "topbar"
+      ? {
+          position: "fixed", top: 58, right: 14,
+          background: theme.bg, border: `0.5px solid ${theme.border}`,
+          borderRadius: 8, overflow: "hidden", zIndex: 60,
+          boxShadow: "0 4px 20px rgba(0,0,0,0.15)", minWidth: 200,
+        }
+      : {
+          position: "absolute", bottom: "calc(100% + 4px)", left: 8, right: 8,
+          background: theme.bg, border: `0.5px solid ${theme.border}`,
+          borderRadius: 8, overflow: "hidden", zIndex: 60,
+          boxShadow: "0 4px 20px rgba(0,0,0,0.15)",
+        };
+
+    return (
+      <>
+        {/* Backdrop to close menu */}
+        <div
+          onClick={() => setShowUserMenu(false)}
+          style={{ position: "fixed", inset: 0, zIndex: 59 }}
+        />
+        <div style={style}>
+          <div style={{ padding: "10px 14px", borderBottom: `0.5px solid ${theme.border}` }}>
+            <p style={{ fontFamily: "'Source Serif 4', Georgia, serif", fontSize: 13, color: theme.text, margin: "0 0 2px" }}>
+              {user?.full_name ?? "Investor"}
+            </p>
+            <p style={{ ...mono, fontSize: 11, color: theme.textMuted, margin: 0 }}>
+              {user?.email ?? ""}
+            </p>
+          </div>
+          <Link href="/settings" onClick={() => setShowUserMenu(false)} style={{
+            display: "block", padding: "10px 14px",
+            ...mono, fontSize: 12, color: theme.textMuted,
+            textDecoration: "none", borderBottom: `0.5px solid ${theme.border}`,
+          }}>
+            Settings →
+          </Link>
+          <Link href="/subscribe" onClick={() => setShowUserMenu(false)} style={{
+            display: "block", padding: "10px 14px",
+            ...mono, fontSize: 12, color: theme.accent,
+            textDecoration: "none", borderBottom: `0.5px solid ${theme.border}`,
+          }}>
+            {planLabel[plan] ?? "FREE"} plan →
+          </Link>
+          <button onClick={handleSignOut} disabled={signingOut} style={{
+            display: "block", width: "100%", padding: "10px 14px",
+            background: "none", border: "none", textAlign: "left",
+            ...mono, fontSize: 12, color: theme.danger,
+            cursor: signingOut ? "not-allowed" : "pointer",
+            opacity: signingOut ? 0.5 : 1,
+          }}>
+            {signingOut ? "Signing out…" : "Sign out →"}
+          </button>
+        </div>
+      </>
+    );
+  }
 
   // ── Shared sidebar nav renderer ──────────────────────────────
   function SidebarNav({ collapsed }: { collapsed: boolean }) {
@@ -256,50 +310,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     );
   }
 
-  // ── User menu popup (shared) ─────────────────────────────────
-  function UserMenuPopup({ onClose }: { onClose: () => void }) {
-    return (
-      <div style={{
-        position: "absolute", bottom: "calc(100% + 4px)", left: 8, right: 8,
-        background: theme.bg, border: `0.5px solid ${theme.border}`,
-        borderRadius: 8, overflow: "hidden", zIndex: 60,
-        boxShadow: "0 4px 20px rgba(0,0,0,0.15)",
-      }}>
-        <div style={{ padding: "10px 14px", borderBottom: `0.5px solid ${theme.border}` }}>
-          <p style={{ fontFamily: "'Source Serif 4', Georgia, serif", fontSize: 13, color: theme.text, margin: "0 0 2px" }}>
-            {user?.full_name ?? "Investor"}
-          </p>
-          <p style={{ ...mono, fontSize: 11, color: theme.textMuted, margin: 0 }}>
-            {user?.email ?? ""}
-          </p>
-        </div>
-        <Link href="/settings" onClick={onClose} style={{
-          display: "block", padding: "10px 14px",
-          ...mono, fontSize: 12, color: theme.textMuted,
-          textDecoration: "none", borderBottom: `0.5px solid ${theme.border}`,
-        }}>
-          Settings →
-        </Link>
-        <Link href="/subscribe" onClick={onClose} style={{
-          display: "block", padding: "10px 14px",
-          ...mono, fontSize: 12, color: theme.accent,
-          textDecoration: "none", borderBottom: `0.5px solid ${theme.border}`,
-        }}>
-          {planLabel[plan] ?? "FREE"} plan →
-        </Link>
-        <button onClick={handleSignOut} disabled={signingOut} style={{
-          display: "block", width: "100%", padding: "10px 14px",
-          background: "none", border: "none", textAlign: "left",
-          ...mono, fontSize: 12, color: theme.danger,
-          cursor: signingOut ? "not-allowed" : "pointer",
-          opacity: signingOut ? 0.5 : 1,
-        }}>
-          {signingOut ? "Signing out…" : "Sign out →"}
-        </button>
-      </div>
-    );
-  }
-
   // ════════════════════════════════════════════════════════════
   // MOBILE LAYOUT (< 640px)
   // ════════════════════════════════════════════════════════════
@@ -347,16 +357,24 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 </span>
               )}
             </button>
-            <Link href="/settings" style={{ textDecoration: "none" }}>
-              <div style={{
-                width: 28, height: 28, borderRadius: "50%",
-                background: "#FAEEDA",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                ...mono, fontSize: 11, color: "#854F0B", fontWeight: 500,
-              }}>
-                {user?.full_name?.[0]?.toUpperCase() ?? "U"}
-              </div>
-            </Link>
+
+            {/* ── Mobile avatar → user menu with sign out ── */}
+            <div style={{ position: "relative" }}>
+              <button
+                onClick={() => setShowUserMenu(v => !v)}
+                style={{ background: "none", border: "none", cursor: "pointer", padding: 0 }}
+              >
+                <div style={{
+                  width: 28, height: 28, borderRadius: "50%",
+                  background: "#FAEEDA",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  ...mono, fontSize: 11, color: "#854F0B", fontWeight: 500,
+                }}>
+                  {user?.full_name?.[0]?.toUpperCase() ?? "U"}
+                </div>
+              </button>
+              {showUserMenu && <UserMenuDropdown position="topbar" />}
+            </div>
           </div>
         </header>
 
@@ -409,6 +427,28 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   </Link>
                 );
               })}
+
+              {/* Sign out in More drawer */}
+              <button
+                onClick={handleSignOut}
+                disabled={signingOut}
+                style={{
+                  display: "flex", alignItems: "center", gap: 12,
+                  padding: "11px 16px", width: "100%",
+                  background: "none", border: "none", cursor: signingOut ? "not-allowed" : "pointer",
+                  opacity: signingOut ? 0.5 : 1,
+                  borderTop: `0.5px solid ${theme.border}`,
+                  marginTop: 4,
+                }}
+              >
+                <span style={{ fontSize: 18 }}>→</span>
+                <span style={{
+                  fontFamily: "'Source Serif 4', Georgia, serif",
+                  fontSize: 15, color: theme.danger,
+                }}>
+                  {signingOut ? "Signing out…" : "Sign out"}
+                </span>
+              </button>
             </div>
           </>
         )}
@@ -523,7 +563,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           {/* Nav icons */}
           <SidebarNav collapsed={true} />
 
-          {/* User avatar */}
+          {/* User avatar → user menu with sign out */}
           <div style={{
             borderTop: `0.5px solid ${theme.border}`,
             padding: "12px 0",
@@ -543,7 +583,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 {user?.full_name?.[0]?.toUpperCase() ?? "U"}
               </div>
             </button>
-            {showUserMenu && <UserMenuPopup onClose={() => setShowUserMenu(false)} />}
+            {showUserMenu && <UserMenuDropdown position="sidebar" />}
           </div>
         </aside>
 
@@ -575,16 +615,24 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   </span>
                 )}
               </button>
-              <Link href="/settings" style={{ textDecoration: "none" }}>
-                <div style={{
-                  width: 28, height: 28, borderRadius: "50%",
-                  background: "#FAEEDA",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  ...mono, fontSize: 11, color: "#854F0B", fontWeight: 500, cursor: "pointer",
-                }}>
-                  {user?.full_name?.[0]?.toUpperCase() ?? "U"}
-                </div>
-              </Link>
+
+              {/* ── Tablet topbar avatar → user menu with sign out ── */}
+              <div style={{ position: "relative" }}>
+                <button
+                  onClick={() => setShowUserMenu(v => !v)}
+                  style={{ background: "none", border: "none", cursor: "pointer", padding: 0 }}
+                >
+                  <div style={{
+                    width: 28, height: 28, borderRadius: "50%",
+                    background: "#FAEEDA",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    ...mono, fontSize: 11, color: "#854F0B", fontWeight: 500,
+                  }}>
+                    {user?.full_name?.[0]?.toUpperCase() ?? "U"}
+                  </div>
+                </button>
+                {showUserMenu && <UserMenuDropdown position="topbar" />}
+              </div>
             </div>
           </header>
 
@@ -695,8 +743,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               </div>
             )}
           </button>
-          {showUserMenu && !sidebarCollapsed && (
-            <UserMenuPopup onClose={() => setShowUserMenu(false)} />
+          {showUserMenu && (
+            <UserMenuDropdown position="sidebar" />
           )}
         </div>
       </aside>
